@@ -1,0 +1,413 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- RÔLES ----------
+model Role {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+}
+
+// ---------- UTILISATEURS ----------
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  photoUrl    String?
+  gender      String?
+  birthDate   DateTime?
+  phone       String?
+  neighborhood String?
+  profession  String?
+  studies     String?
+  talents     String?
+  ministry    String?
+  interests   String?
+  isActive    Boolean  @default(false)
+  roleId      String
+  role        Role     @relation(fields: [roleId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations inverses
+  posts            Post[]
+  comments         Comment[]
+  likes            Like[]
+  events           Event[]
+  eventParticipants EventParticipant[]
+  bibleGameAttempts BibleGameAttempt[]
+  quizAttempts     QuizAttempt[]
+
+  // ... (champs existants)
+  readingPlans   ReadingPlan[]
+  readingProgress ReadingProgress[]
+
+
+  // ... (champs existants)
+  libraryItems LibraryItem[]
+
+  
+  // Ateliers
+  workshopsLed     Workshop[]
+  workshopMembers  WorkshopMember[]
+  workshopChats    WorkshopChat[]
+
+  // Demandes de prière
+  prayerRequests   PrayerRequest[]
+  prayerComments   PrayerComment[]
+  prayerReactions  PrayerReaction[]
+  // ... (champs existants)
+  challengeParticipations ChallengeParticipation[]
+
+  // ... (champs existants)
+  conversations ConversationParticipant[]
+  sentMessages   Message[]
+
+
+}
+
+// ---------- PUBLICATIONS ----------
+model Post {
+  id        String   @id @default(cuid())
+  content   String
+  mediaUrl  String?
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  comments  Comment[]
+  likes     Like[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// ---------- ÉVÉNEMENTS ----------
+model Event {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  location    String?
+  startDate   DateTime
+  endDate     DateTime
+  type        String
+  createdBy   String
+  creator     User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  participants EventParticipant[]
+}
+
+model EventParticipant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id])
+  status      String   @default("registered")
+  registeredAt DateTime @default(now())
+}
+
+// ---------- ATELIERS ----------
+model Workshop {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  imageUrl    String?
+  leaderId    String
+  leader      User     @relation(fields: [leaderId], references: [id])
+  members     WorkshopMember[]
+  chat        WorkshopChat[]
+  schedules   WorkshopSchedule[]
+  archives    WorkshopArchive[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model WorkshopMember {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  workshopId  String
+  workshop    Workshop @relation(fields: [workshopId], references: [id])
+  status      String   @default("pending")
+  joinedAt    DateTime @default(now())
+}
+
+model WorkshopChat {
+  id          String   @id @default(cuid())
+  workshopId  String
+  workshop    Workshop @relation(fields: [workshopId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  message     String
+  fileUrl     String?
+  fileType    String?
+  createdAt   DateTime @default(now())
+}
+
+model WorkshopSchedule {
+  id          String   @id @default(cuid())
+  workshopId  String
+  workshop    Workshop @relation(fields: [workshopId], references: [id])
+  title       String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+}
+
+model WorkshopArchive {
+  id          String   @id @default(cuid())
+  workshopId  String
+  workshop    Workshop @relation(fields: [workshopId], references: [id])
+  title       String
+  description String?
+  fileUrl     String?
+  type        String
+  createdAt   DateTime @default(now())
+}
+
+// ---------- DEMANDES DE PRIÈRE ----------
+model PrayerRequest {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  isAnswered  Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  comments    PrayerComment[]
+  reactions   PrayerReaction[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PrayerComment {
+  id         String   @id @default(cuid())
+  content    String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  requestId  String
+  request    PrayerRequest @relation(fields: [requestId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model PrayerReaction {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  requestId  String
+  request    PrayerRequest @relation(fields: [requestId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+// ---------- BIBLE ----------
+model BibleBook {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  nameFr    String?
+  testament String
+  chapters  Int
+  verses    BibleVerse[]
+}
+
+model BibleVerse {
+  id        String   @id @default(cuid())
+  bookId    String
+  book      BibleBook @relation(fields: [bookId], references: [id])
+  chapter   Int
+  verse     Int
+  text      String
+}
+
+// ---------- QUIZ ----------
+model BibleQuiz {
+  id         String   @id @default(cuid())
+  question   String
+  choices    String
+  answer     String
+  difficulty Int      @default(1)
+  category   String
+  xp         Int      @default(50)
+  createdAt  DateTime @default(now())
+  attempts   QuizAttempt[]
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  quizId    String
+  quiz      BibleQuiz @relation(fields: [quizId], references: [id])
+  score     Int
+  total     Int
+  createdAt DateTime @default(now())
+}
+
+// ---------- JEUX BIBLIQUES ----------
+model BibleGame {
+  id         String   @id @default(cuid())
+  type       String
+  question   String
+  answer     String
+  hint       String?
+  options    String?
+  difficulty Int      @default(1)
+  xp         Int      @default(50)
+  verseRef   String?
+  category   String?
+  createdAt  DateTime @default(now())
+  attempts   BibleGameAttempt[]
+  dailyChallenges DailyChallenge[]
+}
+
+model BibleGameAttempt {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  gameId    String
+  game      BibleGame @relation(fields: [gameId], references: [id])
+  score     Int
+  total     Int
+  time      Int?
+  streak    Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model DailyChallenge {
+  id          String   @id @default(cuid())
+  date        DateTime @unique
+  gameId      String
+  game        BibleGame @relation(fields: [gameId], references: [id])
+  completedBy String   // JSON stringifié
+}
+// ---------- BIBLIOTHÈQUE ----------
+model LibraryItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   // "enseignement", "pdf", "podcast", "chant", "video", "document"
+  fileUrl     String?  // URL du fichier (PDF, audio, vidéo)
+  thumbnail   String?  // URL de l'image de couverture
+  author      String?
+  category    String?  // "Ancien Testament", "Nouveau", "Théologie", "Louange", etc.
+  duration    String?  // Durée pour les audios/vidéos (ex: "12:30")
+  isPublished Boolean  @default(true)
+  userId      String   // Créateur
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+// ---------- DÉFIS SPIRITUELS ----------
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        String   // "daily", "weekly"
+  frequency   String   // "daily", "weekly"
+  points      Int      @default(10)
+  category    String?  // "lecture", "priere", "encouragement", "service", "étude"
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  participations ChallengeParticipation[]
+}
+
+model ChallengeParticipation {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+// ---------- PLANS DE LECTURE ----------
+model ReadingPlan {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   // "daily", "weekly", "yearly"
+  frequency   String   // "daily", "weekly", "monthly", "yearly"
+  verses      String    // Stocke les références bibliques (ex: ["Genèse 1:1", "Jean 3:16", ...])
+  totalItems  Int      // Nombre total de versets/chapitres
+  isActive    Boolean  @default(true)
+  userId      String   // Créateur
+  user        User     @relation(fields: [userId], references: [id])
+  progress    ReadingProgress[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ReadingProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  planId      String
+  plan        ReadingPlan @relation(fields: [planId], references: [id])
+  currentIndex Int     @default(0) // Position dans le tableau de versets
+  completedAt DateTime? // Date de finalisation du plan
+  lastReadAt  DateTime? // Dernière date de lecture
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+model Conversation {
+  id          String   @id @default(cuid())
+  type        String   @default("private") // "private" ou "group"
+  name        String?  // Pour les groupes
+  participants ConversationParticipant[]
+  messages    Message[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  lastReadAt     DateTime @default(now())
+  joinedAt       DateTime @default(now())
+
+  @@unique([conversationId, userId]) // ✅ Ajoute cette ligne
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  content        String   // Peut être vide si c'est un fichier
+  fileUrl        String?
+  fileType       String?  // "image", "video", "audio", "document"
+  senderId       String
+  sender         User     @relation(fields: [senderId], references: [id])
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  readBy         String // userIds qui ont lu le message
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
