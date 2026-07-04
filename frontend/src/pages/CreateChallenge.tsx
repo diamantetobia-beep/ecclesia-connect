@@ -21,6 +21,8 @@ export default function CreateChallenge() {
     frequency: FREQUENCIES[0],
     points: 10,
     category: '',
+    isDaily: false,  // ← Case à cocher "Défi du jour"
+    date: '',        // ← Date optionnelle
   });
   const [error, setError] = useState('');
 
@@ -33,10 +35,14 @@ export default function CreateChallenge() {
     setLoading(true);
     setError('');
     try {
-      await challengeService.create(form);
+      const payload = { ...form };
+      if (!form.isDaily) {
+        delete payload.date; // Si pas défi du jour, on n'envoie pas la date
+      }
+      await challengeService.create(payload);
       navigate('/challenges');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Erreur');
+      setError(err.response?.data?.message || 'Erreur lors de la création');
     } finally {
       setLoading(false);
     }
@@ -45,7 +51,10 @@ export default function CreateChallenge() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-church-cream via-white to-church-cream p-4 md:p-6 lg:p-10">
       <div className="max-w-2xl mx-auto">
-        <button onClick={() => navigate('/challenges')} className="flex items-center gap-2 text-gray-500 hover:text-church-navy transition mb-4">
+        <button
+          onClick={() => navigate('/challenges')}
+          className="flex items-center gap-2 text-gray-500 hover:text-church-navy transition mb-4"
+        >
           <ArrowLeft size={20} /> Retour
         </button>
         <Card className="border-0 shadow-lg">
@@ -56,6 +65,7 @@ export default function CreateChallenge() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Titre */}
               <div>
                 <Label>Titre *</Label>
                 <Input
@@ -65,6 +75,8 @@ export default function CreateChallenge() {
                   placeholder="Ex: Lire un chapitre de la Bible"
                 />
               </div>
+
+              {/* Description */}
               <div>
                 <Label>Description *</Label>
                 <textarea
@@ -75,6 +87,8 @@ export default function CreateChallenge() {
                   placeholder="Décris le défi..."
                 />
               </div>
+
+              {/* Type et Fréquence */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Type</Label>
@@ -101,6 +115,8 @@ export default function CreateChallenge() {
                   </select>
                 </div>
               </div>
+
+              {/* Points */}
               <div>
                 <Label>Points</Label>
                 <Input
@@ -112,6 +128,8 @@ export default function CreateChallenge() {
                   max="100"
                 />
               </div>
+
+              {/* Catégorie */}
               <div>
                 <Label>Catégorie</Label>
                 <select
@@ -125,7 +143,40 @@ export default function CreateChallenge() {
                   ))}
                 </select>
               </div>
+
+              {/* ✅ Case à cocher "Défi du jour" */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isDaily"
+                  checked={form.isDaily}
+                  onChange={(e) => setForm({ ...form, isDaily: e.target.checked })}
+                  className="w-4 h-4 text-church-gold border-gray-300 rounded focus:ring-church-gold"
+                />
+                <Label htmlFor="isDaily" className="cursor-pointer">
+                  Définir comme défi du jour
+                </Label>
+              </div>
+
+              {/* 🆕 Champ date (visible uniquement si case cochée) */}
+              {form.isDaily && (
+                <div>
+                  <Label>Date (optionnelle)</Label>
+                  <Input
+                    type="date"
+                    value={form.date}
+                    onChange={(e) => setForm({ ...form, date: e.target.value })}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Laisse vide pour le jour courant
+                  </p>
+                </div>
+              )}
+
               {error && <div className="bg-red-50 text-red-600 p-2 rounded">{error}</div>}
+
+              {/* Bouton de soumission */}
               <Button type="submit" disabled={loading} className="w-full bg-church-gold text-white">
                 {loading ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
                 Créer le défi

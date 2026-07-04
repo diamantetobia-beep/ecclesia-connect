@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { challengeService } from '../services/challenge.service';
+import { useAuth } from '../hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Target, CheckCircle, Clock, BookOpen, Heart, Users, RefreshCw, Filter } from 'lucide-react';
+import { Loader2, Target, CheckCircle, Clock, RefreshCw, Filter, Plus } from 'lucide-react';
 
+// Types
 interface Challenge {
   id: string;
   title: string;
@@ -13,7 +14,7 @@ interface Challenge {
   type: string;
   frequency: string;
   points: number;
-  category: string;
+  category: string | null;
   isActive: boolean;
   _count: { participations: number };
 }
@@ -27,24 +28,42 @@ interface ChallengeParticipation {
 
 export default function Challenges() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [participations, setParticipations] = useState<ChallengeParticipation[]>([]);
+  const [todayChallenge, setTodayChallenge] = useState<Challenge | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('');
   const [filterFrequency, setFilterFrequency] = useState<string>('');
 
+  // ========== DÉBOGAGE ==========
+  console.log('🔍 [DEBUG] user complet :', user);
+  console.log('🔍 [DEBUG] user.role :', user?.role);
+  console.log('🔍 [DEBUG] user.role?.name :', user?.role?.name);
+  console.log('🔍 [DEBUG] typeof user.role :', typeof user?.role);
+  console.log('🔍 [DEBUG] user.role (stringifié) :', JSON.stringify(user?.role, null, 2));
+  // ===============================
+
   const loadData = async () => {
     setLoading(true);
+    setError('');
     try {
-      const [challengesData, statsData] = await Promise.all([
+      const [challengesData, statsData, todayData] = await Promise.all([
         challengeService.getAll(),
         challengeService.getStats(),
+        challengeService.getToday(),
       ]);
-      setChallenges(challengesData);
-      setParticipations(statsData?.recentParticipations || []);
+
+      setChallenges(Array.isArray(challengesData) ? challengesData : []);
+      setParticipations(Array.isArray(statsData?.recentParticipations) ? statsData.recentParticipations : []);
+      setTodayChallenge(todayData || null);
     } catch (err) {
-      setError('Impossible de charger les défis');
+      console.error(err);
+      setError('Impossible de charger les défis. Veuillez réessayer.');
+      setChallenges([]);
+      setParticipations([]);
+      setTodayChallenge(null);
     } finally {
       setLoading(false);
     }
@@ -57,42 +76,79 @@ export default function Challenges() {
   const handleParticipate = async (id: string) => {
     try {
       await challengeService.participate(id);
-      loadData();
+      await loadData();
     } catch (err) {
-      alert('Erreur');
+      console.error(err);
+      alert('Erreur lors de la participation');
     }
   };
 
   const handleComplete = async (id: string) => {
     try {
       await challengeService.complete(id);
-      loadData();
+      await loadData();
     } catch (err) {
-      alert('Erreur');
+      console.error(err);
+      alert('Erreur lors de la validation du défi');
     }
   };
 
-  // Filtrer les défis
-  const filteredChallenges = challenges.filter(c => {
+  // Filtrage
+  const filteredChallenges = challenges.filter((c) => {
     if (filterCategory && c.category !== filterCategory) return false;
     if (filterFrequency && c.frequency !== filterFrequency) return false;
     return true;
   });
 
-  // Vérifier si l'utilisateur a déjà complété un défi
-  const isCompleted = (challengeId: string) => {
-    return participations.some(p => p.challengeId === challengeId && p.completedAt !== null);
-  };
+  const isCompleted = (challengeId: string) =>
+    participations.some((p) => p.challengeId === challengeId && p.completedAt !== null);
 
-  const isParticipating = (challengeId: string) => {
-    return participations.some(p => p.challengeId === challengeId);
-  };
+  const isParticipating = (challengeId: string) =>
+    participations.some((p) => p.challengeId === challengeId);
 
-  // Statistiques
-  const totalCompleted = participations.filter(p => p.completedAt !== null).length;
+  const totalCompleted = participations.filter((p) => p.completedAt !== null).length;
   const totalPoints = participations
-    .filter(p => p.completedAt !== null)
+    .filter((p) => p.completedAt !== null)
     .reduce((acc, p) => acc + (p.challenge?.points || 0), 0);
+
+  // ========== DÉTECTION ROBUSTE DU RÔLE SUPER ADMIN ==========
+  // Cette fonction gère plusieurs structures possibles :
+  // - user.role = "Super Admin" (chaîne)
+  // - user.role = { name: "Super Admin" } (objet)
+  // - user.role = { role: "Super Admin" } (objet avec autre clé)
+  // - user.roleId = "id_superadmin" (si on utilise un ID)
+  const isSuperAdmin = (() => {
+    if (!user) return false;
+
+    // 1. Si user.role est une chaîne
+    if (typeof user.role === 'string') {
+      const normalized = user.role.toLowerCase().replace(/\s/g, '');
+      return normalized === 'superadmin';
+    }
+
+    // 2. Si user.role est un objet
+    if (user.role && typeof user.role === 'object') {
+      // Cherche le nom du rôle dans différentes propriétés possibles
+      const roleName = user.role.name || user.role.role || user.role.roleName || '';
+      if (roleName) {
+        const normalized = roleName.toLowerCase().replace(/\s/g, '');
+        return normalized === 'superadmin';
+      }
+    }
+
+    // 3. Si on a un roleId (ex: "role_superadmin")
+    if (user.roleId) {
+      // Tu peux comparer avec l'ID exact du rôle superadmin dans ta base
+      // return user.roleId === 'role_superadmin_id';
+      // Pour l'instant, on ignore ce cas, mais tu peux l'ajouter
+    }
+
+    return false;
+  })();
+
+  // ========== AFFICHAGE DU STATUT DÉBOGAGE ==========
+  console.log('🔍 [DEBUG] isSuperAdmin =', isSuperAdmin);
+  // ===================================================
 
   if (loading) {
     return (
@@ -111,10 +167,24 @@ export default function Challenges() {
             <h1 className="text-2xl md:text-3xl font-bold text-church-navy flex items-center gap-3">
               <Target className="text-church-gold" size={28} /> Défis spirituels
             </h1>
-            <p className="text-sm md:text-base text-gray-500">Grandis chaque jour en relevant des défis</p>
+            <p className="text-sm md:text-base text-gray-500">
+              Grandis chaque jour en relevant des défis
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={loadData} className="border-church-gold text-church-gold">
+            {isSuperAdmin && (
+              <Button
+                onClick={() => navigate('/challenges/create')}
+                className="bg-church-gold text-white hover:bg-church-gold/90"
+              >
+                <Plus size={16} className="mr-2" /> Créer un défi
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={loadData}
+              className="border-church-gold text-church-gold"
+            >
               <RefreshCw size={16} className="mr-2" /> Rafraîchir
             </Button>
           </div>
@@ -143,12 +213,67 @@ export default function Challenges() {
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-2xl font-bold text-blue-600">
-                {participations.some(p => p.completedAt && new Date(p.completedAt).toDateString() === new Date().toDateString()) ? '✅' : '⏳'}
+                {participations.some(
+                  (p) =>
+                    p.completedAt &&
+                    new Date(p.completedAt).toDateString() === new Date().toDateString()
+                )
+                  ? '✅'
+                  : '⏳'}
               </p>
               <p className="text-sm text-gray-500">Défi du jour</p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Défi du jour */}
+        {todayChallenge && (
+          <Card className="mb-6 border-2 border-church-gold/30 bg-gradient-to-r from-church-gold/5 to-white">
+            <CardContent className="p-4 flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-church-gold/20 rounded-full">
+                  <Clock className="text-church-gold" size={24} />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-church-gold font-semibold">
+                    Défi du jour
+                  </p>
+                  <h3 className="font-bold text-church-navy">{todayChallenge.title}</h3>
+                  <p className="text-sm text-gray-600">{todayChallenge.description}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm bg-church-gold/10 px-3 py-1 rounded-full">
+                  +{todayChallenge.points} pts
+                </span>
+                {!isParticipating(todayChallenge.id) && !isCompleted(todayChallenge.id) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleParticipate(todayChallenge.id)}
+                    className="text-church-gold border-church-gold"
+                  >
+                    Participer
+                  </Button>
+                )}
+                {isParticipating(todayChallenge.id) && !isCompleted(todayChallenge.id) && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleComplete(todayChallenge.id)}
+                    className="bg-church-gold text-white"
+                  >
+                    <CheckCircle size={14} className="mr-1" /> Compléter
+                  </Button>
+                )}
+                {isCompleted(todayChallenge.id) && (
+                  <span className="text-xs text-green-600 flex items-center gap-1">
+                    <CheckCircle size={14} /> Complété ✅
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Filtres */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-wrap items-center gap-4">
@@ -179,7 +304,10 @@ export default function Challenges() {
           </select>
           {(filterCategory || filterFrequency) && (
             <button
-              onClick={() => { setFilterCategory(''); setFilterFrequency(''); }}
+              onClick={() => {
+                setFilterCategory('');
+                setFilterFrequency('');
+              }}
               className="text-xs text-red-500 hover:underline"
             >
               Effacer les filtres
@@ -211,19 +339,25 @@ export default function Challenges() {
                         </div>
                         <span className="text-xs text-gray-400">{challenge.frequency}</span>
                         {challenge.category && (
-                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">{challenge.category}</span>
+                          <span className="text-xs bg-gray-100 px-2 py-0.5 rounded-full">
+                            {challenge.category}
+                          </span>
                         )}
                       </div>
                       <span className="text-xs bg-church-gold/10 text-church-gold px-2 py-0.5 rounded-full">
                         +{challenge.points} pts
                       </span>
                     </div>
-                    <CardTitle className="text-church-navy text-lg line-clamp-1">{challenge.title}</CardTitle>
+                    <CardTitle className="text-church-navy text-lg line-clamp-1">
+                      {challenge.title}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-600 line-clamp-2">{challenge.description}</p>
                     <div className="flex items-center justify-between mt-4 text-sm">
-                      <span className="text-gray-400">{challenge._count.participations} participants</span>
+                      <span className="text-gray-400">
+                        {challenge._count.participations} participants
+                      </span>
                       <div className="flex gap-2">
                         {!participating && !completed && (
                           <Button

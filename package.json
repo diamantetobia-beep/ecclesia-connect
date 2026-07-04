@@ -1,7 +1,12 @@
 {
-  "devDependencies": {
-    "autoprefixer": "^10.5.2",
-    "postcss": "^8.5.16",
-    "tailwindcss": "^4.3.2"
+  "name": "ecclesia-web",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node backend/dist/main.js",
+    "build": "cd backend && npm install && npm run build && cd ../frontend && npm install && npm run build",
+    "postinstall": "cd backend && npm install && npm run build && cd ../frontend && npm install && npm run build"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }

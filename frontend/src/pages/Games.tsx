@@ -181,26 +181,31 @@ function SpeedGame({ game, onFinish }: any) {
   );
 }
 
-// ---------- COMPOSANT QCM GÉNÉRIQUE ----------
+// ---------- COMPOSANT QCM GÉNÉRIQUE (MODIFIÉ POUR SUPPRIMER LES INDICES DU JEU "book") ----------
 function QcmGame({ game, onAnswer, onNext, showResult, selectedAnswer }: any) {
   if (!game || typeof game !== 'object') {
     return <p className="text-red-500">⚠️ Erreur : données du jeu invalides.</p>;
   }
 
+  const isBookGame = game.type === 'book' || game.type === 'book_quiz';
+
   const renderContent = () => {
+    // Si c'est un jeu "Dans quel livre", on n'affiche AUCUNE référence ni livre
+    if (isBookGame) {
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-blue-600 font-semibold">{game.question || '📖 Dans quel livre ?'}</p>
+          {game.text && <p className="text-lg font-medium">"{game.text}"</p>}
+          {/* Pas d'affichage de game.reference ni de game.bookName */}
+        </div>
+      );
+    }
+
+    // Autres types (inchangés)
     if (game.type === 'who_said') {
       return (
         <div className="space-y-2">
           <p className="text-sm text-blue-600 font-semibold">{game.question || '🗣️ Qui a dit cette parole ?'}</p>
-          <p className="text-lg font-medium">"{game.text}"</p>
-          <p className="text-sm text-gray-400">{game.reference}</p>
-        </div>
-      );
-    }
-    if (game.type === 'book_quiz') {
-      return (
-        <div className="space-y-2">
-          <p className="text-sm text-blue-600 font-semibold">{game.question}</p>
           <p className="text-lg font-medium">"{game.text}"</p>
           <p className="text-sm text-gray-400">{game.reference}</p>
         </div>
@@ -272,11 +277,12 @@ function QcmGame({ game, onAnswer, onNext, showResult, selectedAnswer }: any) {
         </div>
       );
     }
+    // Fallback pour les autres types (on masque aussi la référence si c'est un jeu de livre)
     return (
       <div className="space-y-2">
         <p className="text-sm text-blue-600 font-semibold">{game.question || '📖 Choisis la bonne réponse'}</p>
         {game.text && <p className="text-lg font-medium">{game.text}</p>}
-        {game.reference && <p className="text-sm text-gray-400">{game.reference}</p>}
+        {game.reference && !isBookGame && <p className="text-sm text-gray-400">{game.reference}</p>}
       </div>
     );
   };
@@ -394,11 +400,10 @@ export default function Games() {
       const res = await api.get(endpoint);
       const gameData = res.data;
 
-      // ✅ Éviter les répétitions (historique)
+      // Éviter les répétitions
       if (gameData.text) {
         const questionKey = `${gameData.text.substring(0, 50)}-${gameData.reference || ''}`;
         if (askedQuestions.includes(questionKey)) {
-          // Relancer une nouvelle question
           let attempts = 0;
           let found = false;
           while (attempts < 5 && !found) {

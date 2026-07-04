@@ -29,6 +29,7 @@ import Chat from './pages/Chat';
 import ChatDetail from './pages/ChatDetail';
 import NewChat from './pages/NewChat';
 
+
 function App() {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -76,6 +77,10 @@ function App() {
         <Route path="/chat" element={token ? <Chat /> : <Navigate to="/login" />} />
         <Route path="/chat/:id" element={token ? <ChatDetail /> : <Navigate to="/login" />} />
         <Route path="/chat/new" element={token ? <NewChat /> : <Navigate to="/login" />} />
+        
+
+// ...
+<Route path="/challenges/create" element={<CreateChallenge />} />
       </Routes>
     </BrowserRouter>
   );

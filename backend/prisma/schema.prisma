@@ -332,6 +332,8 @@ model Challenge {
   points      Int      @default(10)
   category    String?  // "lecture", "priere", "encouragement", "service", "étude"
   isActive    Boolean  @default(true)
+  isDaily     Boolean  @default(false)
+  date        DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
