@@ -1,0 +1,18 @@
+app = "ecclesia-web"
+primary_region = "cdg"  # ou "ams", "fra" (Europe)
+
+[build]
+  [build.args]
+    NODE_VERSION = "18"
+
+[env]
+  NODE_ENV = "production"
+
+[mounts]
+  source = "sqlite_data"
+  destination = "/app/backend"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false
