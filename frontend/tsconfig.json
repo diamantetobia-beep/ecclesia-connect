@@ -14,10 +14,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-  
     "noFallthroughCasesInSwitch": true,
-    "rootDirs": ["./src"]
-    
+
+    "rootDirs": ["./src"],
+
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
+
   "include": ["src"]
 }
